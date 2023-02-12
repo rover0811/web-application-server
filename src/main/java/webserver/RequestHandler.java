@@ -1,13 +1,19 @@
 package webserver;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
+import ch.qos.logback.core.boolex.Matcher;
+import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.HttpRequestUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -24,14 +30,71 @@ public class RequestHandler extends Thread {
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
-            DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = "Check CI/CD".getBytes();
-            response200Header(dos, body.length);
-            responseBody(dos, body);
+
+            BufferedReader bufferedReader=new BufferedReader(new InputStreamReader(in));
+
+            String line = bufferedReader.readLine();
+
+            if(line == null) {
+                return;
+            }
+            String[] firstline=line.split(" ");
+            String url=firstline[1];
+
+            if (url.equals("/index.html"))
+                getIndex(url,out);
+            else if (url.equals("/user/form.html")) {
+                getForm(url,out);
+            }
+            else if (url.startsWith("/user/create")) {
+                int index=url.indexOf("?");
+                String requestPath=url.substring(0,index);
+                String params=url.substring((index+1));
+                Map<String, String> map = HttpRequestUtils.parseQueryString(params);
+                User newuser=new User(map.get("userId"),map.get("password"),map.get("name"),map.get("email"));
+                String a=newuser.toString();
+                log.debug(a);
+                byte[] body=a.getBytes();
+                DataOutputStream dos = new DataOutputStream(out);
+                response200Header(dos, body.length);
+                responseBody(dos, body);
+            }
+
+
+            //log 찍기
+//            while(!"".equals(line)) {
+//                log.info(line);
+//                line = bufferedReader.readLine();
+//            };
+
+
+
+//            byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+//            DataOutputStream dos = new DataOutputStream(out);
+//
+//            response200Header(dos, body.length);
+//            responseBody(dos, body);
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
+    private void getIndex(String url,OutputStream out) throws IOException {
+
+        byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+        DataOutputStream dos = new DataOutputStream(out);
+
+        response200Header(dos, body.length);
+        responseBody(dos, body);
+    }
+    private void getForm(String url,OutputStream out) throws IOException {
+
+        byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+        DataOutputStream dos = new DataOutputStream(out);
+
+        response200Header(dos, body.length);
+        responseBody(dos, body);
+    }
+
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
         try {
